@@ -23,36 +23,53 @@ async function run() {
           // Connect the client to the server	(optional starting in v4.7)
           // await client.connect();
           // Send a ping to confirm a successful connection
-          const productsCollection =client.db('shop-easy').collection('products')
-          app.get('/products',async(req,res)=>{
+          const productsCollection = client.db('shop-easy').collection('products')
+          app.get('/products', async (req, res) => {
                const result = await productsCollection.find().toArray();
                res.send(result)
           })
           app.get('/product', async (req, res) => {
-               try {
-                   const page = parseInt(req.query.page) || 1;  
-                   const limit = parseInt(req.query.limit) || 15;  
-                   const skip = (page - 1) * limit;  
-           
-                   const productsCursor = productsCollection.find().skip(skip).limit(limit);
-                   const products = await productsCursor.toArray();
-                   
-                   const totalProducts = await productsCollection.countDocuments();
-                   const totalPages = Math.ceil(totalProducts / limit);
-           
-                   res.json({
-                       page,
-                       limit,
-                       totalPages,
-                       totalProducts,
-                       products
-                   });
-               } catch (error) {
-                   console.error('Error fetching products:', error);
-                   res.status(500).send('An error occurred while fetching products');
+               const { page = 1, limit = 10, category, minPrice = 0, maxPrice = Infinity, searchQuery } = req.query;
+
+               const query = {
+                    price: { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) },
+               };
+
+               if (category) {
+                    query.category = category;
                }
-           });
-           
+
+               if (searchQuery) {
+                    query.$or = [
+                         { name: { $regex: searchQuery, $options: 'i' } },
+                         { description: { $regex: searchQuery, $options: 'i' } }
+                    ];
+               }
+               const sortOptions = {};
+               if (sortOrder === 'price-desc') {
+                    sortOptions.price = -1; 
+               } else if (sortOrder === 'price-asc') {
+                    sortOptions.price = 1; 
+               } else if (sortOrder === 'date-desc') {
+                    sortOptions.created_at = -1; 
+               } else if (sortOrder === 'date-asc') {
+                    sortOptions.created_at = 1; 
+               }
+
+               const productsCollection = client.db('shop-easy').collection('products');
+               const products = await productsCollection
+                    .sort(sortOptions)
+                    .find(query)
+                    .skip((page - 1) * limit)
+                    .limit(parseInt(limit))
+                    .toArray();
+
+               const totalProducts = await productsCollection.countDocuments(query);
+               const totalPages = Math.ceil(totalProducts / limit);
+
+               res.send({ products, totalPages });
+          });
+
           await client.db("admin").command({ ping: 1 });
           console.log("Pinged your deployment. You successfully connected to MongoDB!");
      } finally {
