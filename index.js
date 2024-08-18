@@ -26,8 +26,33 @@ async function run() {
           const productsCollection =client.db('shop-easy').collection('products')
           app.get('/products',async(req,res)=>{
                const result = await productsCollection.find().toArray();
-              
+               res.send(result)
           })
+          app.get('/product', async (req, res) => {
+               try {
+                   const page = parseInt(req.query.page) || 1;  
+                   const limit = parseInt(req.query.limit) || 15;  
+                   const skip = (page - 1) * limit;  
+           
+                   const productsCursor = productsCollection.find().skip(skip).limit(limit);
+                   const products = await productsCursor.toArray();
+                   
+                   const totalProducts = await productsCollection.countDocuments();
+                   const totalPages = Math.ceil(totalProducts / limit);
+           
+                   res.json({
+                       page,
+                       limit,
+                       totalPages,
+                       totalProducts,
+                       products
+                   });
+               } catch (error) {
+                   console.error('Error fetching products:', error);
+                   res.status(500).send('An error occurred while fetching products');
+               }
+           });
+           
           await client.db("admin").command({ ping: 1 });
           console.log("Pinged your deployment. You successfully connected to MongoDB!");
      } finally {
