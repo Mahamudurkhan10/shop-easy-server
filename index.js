@@ -29,7 +29,7 @@ async function run() {
                res.send(result)
           })
           app.get('/product', async (req, res) => {
-               const { page = 1, limit = 10, category, minPrice = 0, maxPrice = Infinity, searchQuery } = req.query;
+               const { page = 1, limit = 15, category, minPrice = 0, maxPrice = Infinity, searchQuery, sortOrder } = req.query;
 
                const query = {
                     price: { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) },
@@ -47,19 +47,20 @@ async function run() {
                }
                const sortOptions = {};
                if (sortOrder === 'price-desc') {
-                    sortOptions.price = -1; 
+                    sortOptions.price = -1;
                } else if (sortOrder === 'price-asc') {
-                    sortOptions.price = 1; 
+                    sortOptions.price = 1;
                } else if (sortOrder === 'date-desc') {
-                    sortOptions.created_at = -1; 
+                    sortOptions.created_at = -1;
                } else if (sortOrder === 'date-asc') {
-                    sortOptions.created_at = 1; 
+                    sortOptions.created_at = 1;
                }
 
                const productsCollection = client.db('shop-easy').collection('products');
                const products = await productsCollection
-                    .sort(sortOptions)
+
                     .find(query)
+                    .sort(sortOptions)
                     .skip((page - 1) * limit)
                     .limit(parseInt(limit))
                     .toArray();
